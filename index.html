@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Mapa de Soros Antiofídicos</title>
+  <meta name="description" content="Encontre o hospital mais próximo com soro antiofídico. Dados oficiais do Ministério da Saúde.">
+  <meta name="theme-color" content="#ffffff">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.css"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    :root{--bg:#ffffff;--surface:#f5f6f8;--text:#1a1a1a;--text2:#555;--muted:#999;--border:#e2e4e8;--accent:#0d7c5f;--accent-hover:#0a6b51;--accent-bg:#e8f5f0;--danger:#C62828;--danger-hover:#b71c1c;--danger-bg:#ffebee;--warn:#8d6e00;--warn-bg:#fff8e1;--shadow:0 1px 3px rgba(0,0,0,.06);--shadow2:0 4px 16px rgba(0,0,0,.1)}
+    body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);height:100dvh;display:flex;flex-direction:column;overflow:hidden;-webkit-tap-highlight-color:transparent}
+
+    header{background:var(--bg);border-bottom:1px solid var(--border);padding:0 20px;display:flex;align-items:center;height:56px;gap:14px;z-index:1000;flex-shrink:0}
+    .logo{display:flex;align-items:center;gap:9px;flex-shrink:0}
+    .logo-icon{width:32px;height:32px;background:var(--accent-bg);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:17px}
+    .logo h1{font-size:15px;font-weight:700;color:var(--text);white-space:nowrap;letter-spacing:-.3px}
+    .help-btn{background:var(--danger);color:#fff;border:none;padding:8px 16px;border-radius:8px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0}
+    .help-btn:hover{background:var(--danger-hover)}
+    .help-btn:active{opacity:.9}
+    .hdr-spacer{flex:1}
+    .hdr-controls{display:flex;gap:8px;align-items:center}
+    select,.search-input{background:var(--surface);color:var(--text);border:1px solid var(--border);padding:8px 12px;border-radius:8px;font-family:inherit;font-size:13px;outline:none}
+    select:focus,.search-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(13,124,95,.1)}
+    .search-input{width:240px}
+
+    .main-content{flex:1;position:relative;overflow:hidden}
+    #map{width:100%;height:100%;z-index:1}
+
+    .fab-nearest{position:absolute;z-index:800;bottom:32px;left:50%;transform:translateX(-50%);height:46px;padding:0 22px;background:var(--accent);color:#fff;border:none;border-radius:23px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;box-shadow:var(--shadow2);white-space:nowrap}
+    .fab-nearest:hover{background:var(--accent-hover)}
+    .fab-nearest:active{transform:translateX(-50%) scale(.97)}
+    .fab-stats{position:absolute;top:12px;right:12px;z-index:800;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);border:1px solid var(--border);border-radius:8px;padding:7px 14px;display:flex;gap:12px;font-size:12px;color:var(--text2);box-shadow:var(--shadow)}
+    .fab-stats strong{color:var(--text);font-weight:700;margin-right:2px}
+    .fab-bottom-left{display:none}
+
+    .sidebar{position:absolute;top:0;right:0;width:370px;height:100%;background:var(--bg);border-left:1px solid var(--border);overflow-y:auto;z-index:900;transform:translateX(100%);transition:transform .25s ease;box-shadow:-4px 0 16px rgba(0,0,0,.05)}
+    .sidebar.open{transform:translateX(0)}
+    .sb-header{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--bg);z-index:3}
+    .sb-header h2{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.6px}
+    .close-btn{background:var(--surface);border:1px solid var(--border);color:var(--text2);cursor:pointer;font-size:16px;width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;line-height:1}
+    .close-btn:hover{background:var(--border)}
+    .hospital-detail{padding:16px}
+    .h-name{font-size:17px;font-weight:700;color:var(--accent);margin-bottom:2px;line-height:1.3}
+    .h-city{font-size:12px;color:var(--muted);margin-bottom:16px}
+    .d-row{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
+    .d-row:last-child{border-bottom:none}
+    .d-icon{width:30px;height:30px;background:var(--surface);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
+    .d-body{flex:1;min-width:0}
+    .d-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;margin-bottom:1px;font-weight:500}
+    .d-val{font-size:13px;line-height:1.5;color:var(--text2)}
+    .d-val a{color:var(--accent);text-decoration:none;font-weight:500}
+    .d-val a:hover{text-decoration:underline}
+    .route-btn{display:block;width:100%;padding:13px;background:var(--accent);color:#fff;border:none;border-radius:10px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;margin-top:14px;text-align:center;text-decoration:none}
+    .route-btn:hover{background:var(--accent-hover)}
+
+    .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:10000;display:none;align-items:center;justify-content:center;backdrop-filter:blur(2px)}
+    .modal-overlay.open{display:flex}
+    .modal{background:var(--bg);border:1px solid var(--border);border-radius:16px;width:92%;max-width:440px;max-height:85dvh;overflow-y:auto;padding:20px;box-shadow:0 20px 60px rgba(0,0,0,.15)}
+    .modal-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+    .modal-top h2{font-size:16px;font-weight:700;color:var(--danger)}
+    .m-urgency{background:var(--danger-bg);border:1px solid #f5c6c0;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:12px;line-height:1.5;color:#922b21}
+    .m-urgency strong{color:var(--danger)}
+    .m-section{margin-bottom:10px}
+    .m-section h3{font-size:10px;font-weight:700;margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px}
+    .m-section h3.do{color:var(--accent)}
+    .m-section h3.dont{color:var(--danger)}
+    .m-section ul{list-style:none;padding:0}
+    .m-section ul li{font-size:12px;line-height:1.5;padding:2px 0 2px 18px;position:relative}
+    .m-section ul li::before{position:absolute;left:0;font-size:10px;font-weight:700}
+    .m-section.do-s ul li::before{content:'✓';color:var(--accent)}
+    .m-section.dont-s ul li::before{content:'✗';color:var(--danger)}
+    .m-disclaimer{background:var(--warn-bg);border:1px solid #e8dbb5;border-radius:8px;padding:8px 10px;font-size:9px;color:var(--warn);line-height:1.5}
+
+    .loading-overlay{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;transition:opacity .4s}
+    .loading-overlay.hidden{opacity:0;pointer-events:none}
+    .ld-spinner{width:32px;height:32px;border:2.5px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .ld-text{margin-top:10px;color:var(--muted);font-size:12px}
+
+    .leaflet-popup-content-wrapper{background:var(--bg)!important;color:var(--text)!important;border-radius:10px!important;border:1px solid var(--border)!important;box-shadow:var(--shadow2)!important}
+    .leaflet-popup-tip{background:var(--bg)!important;border:1px solid var(--border)!important}
+    .leaflet-popup-content{margin:10px!important;font-family:'Inter',sans-serif!important}
+    .leaflet-control-attribution{font-size:9px!important;opacity:.5!important;background:rgba(255,255,255,.7)!important;padding:2px 6px!important}
+    .leaflet-control-attribution a{color:var(--muted)!important;text-decoration:none!important}
+    .leaflet-control-attribution a:hover{color:var(--accent)!important}
+    .p-name{font-weight:700;font-size:13px;color:var(--accent);margin-bottom:2px}
+    .p-city{font-size:11px;color:var(--muted);margin-bottom:5px}
+    .p-info{font-size:11px;color:var(--text2);line-height:1.3}
+    .p-link{display:inline-block;margin-top:6px;color:var(--accent);font-size:11px;cursor:pointer;font-weight:500}
+    .p-link:hover{text-decoration:underline}
+    .marker-cluster-small{background-color:rgba(13,124,95,.15)!important}
+    .marker-cluster-small div{background-color:var(--accent)!important;color:#fff!important;font-family:'Inter',sans-serif!important;font-weight:700!important;font-size:12px!important}
+    .marker-cluster-medium{background-color:rgba(141,110,0,.15)!important}
+    .marker-cluster-medium div{background-color:#b8860b!important;color:#fff!important;font-family:'Inter',sans-serif!important;font-weight:700!important;font-size:12px!important}
+    .marker-cluster-large{background-color:rgba(198,40,40,.15)!important}
+    .marker-cluster-large div{background-color:var(--danger)!important;color:#fff!important;font-family:'Inter',sans-serif!important;font-weight:700!important;font-size:12px!important}
+
+    @media(max-width:768px){
+      header{height:auto;flex-wrap:wrap;padding:8px 12px;gap:6px}
+      .logo-icon{width:28px;height:28px;font-size:15px;border-radius:7px}
+      .logo h1{font-size:13px}
+      .help-btn{padding:7px 12px;font-size:12px;order:2;margin-left:auto}
+      .hdr-spacer{display:none}
+      .hdr-controls{width:100%;order:3}
+      select{font-size:12px;padding:7px 8px;max-width:100px}
+      .search-input{font-size:12px;width:auto;flex:1;min-width:0}
+      .sidebar{width:100%;border-left:none;border-radius:14px 14px 0 0;top:auto;bottom:0;height:auto;max-height:75dvh;transform:translateY(100%);box-shadow:0 -4px 20px rgba(0,0,0,.1)}
+      .sidebar.open{transform:translateY(0)}
+      .leaflet-control-zoom{display:none!important}
+      .fab-nearest{bottom:20px;font-size:12px;height:42px;padding:0 18px}
+      .fab-stats{top:8px;right:8px;padding:5px 10px;font-size:11px;gap:8px}
+      .modal{width:94%;max-width:400px;padding:16px;border-radius:14px}
+      .m-urgency{font-size:11px;padding:8px 10px;margin-bottom:10px}
+      .m-section ul li{font-size:11px;line-height:1.45;padding:1px 0 1px 16px}
+      .m-section h3{font-size:9px;margin-bottom:4px}
+      .m-disclaimer{font-size:8px;padding:6px 8px}
+      .modal-top{margin-bottom:8px}
+      .modal-top h2{font-size:14px}
+      .m-section{margin-bottom:8px}
+    }
+  </style>
+</head>
+<body>
+  <div class="loading-overlay" id="loading">
+    <div class="ld-spinner"></div>
+    <p class="ld-text">Carregando hospitais...</p>
+  </div>
+
+  <div class="modal-overlay" id="helpModal">
+    <div class="modal">
+      <div class="modal-top">
+        <h2>🚨 Fui picado</h2>
+        <button class="close-btn" onclick="document.getElementById('helpModal').classList.remove('open')">✕</button>
+      </div>
+      <div class="m-urgency">
+        <strong>⏱ O tempo salva vidas.</strong> Quanto mais rápido chegar ao hospital, maior a chance de recuperação. Crianças, idosos e animais domésticos são ainda mais vulneráveis.
+      </div>
+      <div class="m-section do-s">
+        <h3 class="do">O que fazer</h3>
+        <ul>
+          <li>Lave o local com água e sabão.</li>
+          <li>Mantenha a pessoa calma, em repouso e hidratada.</li>
+          <li>Mantenha o membro picado elevado.</li>
+          <li>Tire uma foto nítida do animal com distância segura. Não existe soro universal — a foto ajuda no tratamento.</li>
+          <li>Use <strong>"Hospital mais próximo"</strong> e toque em <strong>"Rotas"</strong>.</li>
+          <li>Ligue para o SAMU: <a href="tel:192" style="color:var(--accent);font-weight:700;text-decoration:none">192</a></li>
+        </ul>
+      </div>
+      <div class="m-section dont-s">
+        <h3 class="dont">O que não fazer</h3>
+        <ul>
+          <li>Não amarre o membro — torniquete piora e pode causar amputação.</li>
+          <li>Não corte a picada nem tente sugar o veneno.</li>
+          <li>Não capture o animal vivo.</li>
+          <li>Não passe produtos caseiros (café, alho, etc.).</li>
+        </ul>
+      </div>
+      <div class="m-section">
+        <div class="m-disclaimer">⚠️ Mapa gerado a partir de dados oficiais do Ministério da Saúde. Nomes podem estar desatualizados. Confirme com moradores ou ligue para o SAMU.</div>
+      </div>
+    </div>
+  </div>
+
+  <header>
+    <div class="logo">
+      <div class="logo-icon">🦂</div>
+      <h1>Mapa de Soros Antiofídicos</h1>
+    </div>
+    <button class="help-btn" id="helpBtn">🚨 Fui picado!</button>
+    <div class="hdr-spacer"></div>
+    <div class="hdr-controls">
+      <select id="filterRegiao"><option value="">Região</option><option value="Norte">Norte</option><option value="Nordeste">Nordeste</option><option value="Centro-Oeste">Centro-Oeste</option><option value="Sudeste">Sudeste</option><option value="Sul">Sul</option></select>
+      <select id="filterEstado"><option value="">Estado</option></select>
+      <input class="search-input" type="text" id="searchBox" placeholder="Cidade, hospital ou animal...">
+    </div>
+  </header>
+
+  <div class="main-content">
+    <div id="map"></div>
+    <div class="fab-stats"><strong id="totalHospitais">0</strong> Hospitais &nbsp;·&nbsp; <strong id="totalMunicipios">0</strong> Municípios</div>
+    <button class="fab-nearest" id="fabNearest">🏥 Hospital mais próximo</button>
+    <div class="sidebar" id="sidebar">
+      <div class="sb-header"><h2>Detalhes</h2><button class="close-btn" id="closeSidebar">✕</button></div>
+      <div class="hospital-detail" id="hospitalDetail"></div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  <script>
+    var SHEET_ID='1iUaty6oqb-ea664bx10Qaom2onSP_N2CYPerOtOreRY';
+    var CSV_URL='https://docs.google.com/spreadsheets/d/'+SHEET_ID+'/gviz/tq?tqx=out:csv&sheet=Dados';
+    var allData=[],cluster,uMarker=null,uLat=null,uLng=null;
+    var map=L.map('map',{zoomControl:true}).setView([-14.235,-51.9253],4);
+    L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',{maxZoom:20,attribution:'<a href="https://forms.gle/SEU_FORM_ID" target="_blank">Achou um erro? Avise-nos</a> | Ministério da Saúde'}).addTo(map);
+
+    function pf(v){if(!v)return NaN;return parseFloat(String(v).replace("'","").replace(",","."))}
+    function phoneLinks(s){if(!s)return'';return s.replace(/\(?\d{2,3}\)?\s*\d{4,5}[-.\s]?\d{4}/g,function(m){return'<a href="tel:+55'+m.replace(/\D/g,'')+'">'+m+'</a>'})}
+    function hIcon(){return L.divIcon({className:'',html:'<div style="width:24px;height:24px;background:#0d7c5f;border:2px solid #fff;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,.2);display:flex;align-items:center;justify-content:center;font-size:11px">🏥</div>',iconSize:[24,24],iconAnchor:[12,12],popupAnchor:[0,-12]})}
+    function uIcon(){return L.divIcon({className:'',html:'<div style="width:16px;height:16px;background:#4285f4;border:2.5px solid #fff;border-radius:50%;box-shadow:0 0 0 4px rgba(66,133,244,.15),0 1px 3px rgba(0,0,0,.2)"></div>',iconSize:[16,16],iconAnchor:[8,8]})}
+
+    function load(){return new Promise(function(ok,fail){Papa.parse(CSV_URL,{download:true,header:true,complete:function(r){ok(r.data.filter(function(d){return d['Município']&&d['Município'].trim()}))},error:fail})})}
+
+    function render(d){
+      if(cluster)map.removeLayer(cluster);
+      cluster=L.markerClusterGroup({maxClusterRadius:50,spiderfyOnMaxZoom:true,showCoverageOnHover:false});
+      var c=0;
+      d.forEach(function(h){
+        var la=pf(h['Latitude']),lo=pf(h['Longitude']);
+        if(isNaN(la)||isNaN(lo))return;
+        var mk=L.marker([la,lo],{icon:hIcon()});
+        var i=c;
+        mk.bindPopup('<div class="p-name">'+(h['Unidade de Saúde']||'')+'</div><div class="p-city">'+(h['Município']||'')+' – '+(h['Estado']||'')+'</div><div class="p-info">'+(h['Atende picadas de']||'')+'</div><div class="p-link" onclick="showIdx('+i+')">Ver detalhes →</div>',{maxWidth:240});
+        cluster.addLayer(mk);c++;
+      });
+      map.addLayer(cluster);
+      document.getElementById('totalHospitais').textContent=c;
+      document.getElementById('totalMunicipios').textContent=new Set(d.map(function(h){return h['Município']}).filter(Boolean)).size;
+      window._fd=d.filter(function(h){return!isNaN(pf(h['Latitude']))&&!isNaN(pf(h['Longitude']))});
+    }
+
+    window.showIdx=function(i){var h=window._fd[i];if(h)showDetail(h)};
+
+    function showDetail(h){
+      var la=pf(h['Latitude']),lo=pf(h['Longitude']);
+      var url='https://www.google.com/maps/dir/?api=1&destination='+la+','+lo;
+      var ph=phoneLinks(h['Telefones']||'');
+      document.getElementById('hospitalDetail').innerHTML=
+        '<div class="h-name">'+(h['Unidade de Saúde']||'')+'</div>'
+        +'<div class="h-city">'+(h['Município']||'')+' – '+(h['Estado']||'')+'</div>'
+        +'<div class="d-row"><div class="d-icon">📍</div><div class="d-body"><div class="d-label">Endereço</div><div class="d-val">'+(h['Endereço']||'')+'</div></div></div>'
+        +'<div class="d-row"><div class="d-icon">📞</div><div class="d-body"><div class="d-label">Telefones</div><div class="d-val">'+ph+'</div></div></div>'
+        +'<div class="d-row"><div class="d-icon">💉</div><div class="d-body"><div class="d-label">Soros</div><div class="d-val">'+(h['Soros']||'')+'</div></div></div>'
+        +'<div class="d-row"><div class="d-icon">🐍</div><div class="d-body"><div class="d-label">Atende picadas de</div><div class="d-val">'+(h['Atende picadas de']||'')+'</div></div></div>'
+        +'<a href="'+url+'" target="_blank" class="route-btn">📍 Rotas no Google Maps</a>';
+      document.getElementById('sidebar').classList.add('open');
+    }
+
+    function goNearest(){
+      if(uLat===null){getLocation(function(){goNearest()});return}
+      var best=null,bd=Infinity;
+      (window._fd||[]).forEach(function(h){
+        var la=pf(h['Latitude']),lo=pf(h['Longitude']);
+        if(isNaN(la)||isNaN(lo))return;
+        var d=Math.pow(la-uLat,2)+Math.pow((lo-uLng)*Math.cos(uLat*Math.PI/180),2);
+        if(d<bd){bd=d;best=h}
+      });
+      if(!best)return;
+      map.setView([pf(best['Latitude']),pf(best['Longitude'])],14);
+      showDetail(best);
+    }
+
+    function doFilter(){
+      var r=document.getElementById('filterRegiao').value;
+      var e=document.getElementById('filterEstado').value;
+      var s=document.getElementById('searchBox').value.toLowerCase();
+      var f=allData;
+      if(r)f=f.filter(function(h){return(h['Região']||h['Regiao'])===r});
+      if(e)f=f.filter(function(h){return h['Estado']===e});
+      if(s)f=f.filter(function(h){
+        return(h['Município']||'').toLowerCase().indexOf(s)!==-1
+          ||(h['Unidade de Saúde']||'').toLowerCase().indexOf(s)!==-1
+          ||(h['Soros']||'').toLowerCase().indexOf(s)!==-1
+          ||(h['Atende picadas de']||'').toLowerCase().indexOf(s)!==-1
+      });
+      render(f);
+    }
+
+    function popEstados(d){
+      var es=[...new Set(d.map(function(h){return h['Estado']}).filter(Boolean))].sort();
+      var sel=document.getElementById('filterEstado');
+      es.forEach(function(e){var o=document.createElement('option');o.value=e;o.textContent=e;sel.appendChild(o)});
+    }
+
+    function getLocation(cb){
+      if(!navigator.geolocation)return;
+      navigator.geolocation.getCurrentPosition(function(p){
+        uLat=p.coords.latitude;uLng=p.coords.longitude;
+        if(uMarker)map.removeLayer(uMarker);
+        uMarker=L.marker([uLat,uLng],{icon:uIcon(),zIndexOffset:1000}).addTo(map);
+        map.setView([uLat,uLng],8);
+        if(cb)cb();
+      },function(){},{enableHighAccuracy:true,timeout:10000});
+    }
+
+    document.getElementById('filterRegiao').addEventListener('change',function(){
+      var r=this.value,sel=document.getElementById('filterEstado');
+      sel.innerHTML='<option value="">Estado</option>';
+      var es;
+      if(r)es=[...new Set(allData.filter(function(h){return(h['Região']||h['Regiao'])===r}).map(function(h){return h['Estado']}).filter(Boolean))].sort();
+      else es=[...new Set(allData.map(function(h){return h['Estado']}).filter(Boolean))].sort();
+      es.forEach(function(e){var o=document.createElement('option');o.value=e;o.textContent=e;sel.appendChild(o)});
+      doFilter();
+    });
+    document.getElementById('filterEstado').addEventListener('change',doFilter);
+    document.getElementById('searchBox').addEventListener('input',doFilter);
+    document.getElementById('closeSidebar').addEventListener('click',function(){document.getElementById('sidebar').classList.remove('open')});
+    document.getElementById('helpBtn').addEventListener('click',function(){document.getElementById('helpModal').classList.add('open')});
+    document.getElementById('helpModal').addEventListener('click',function(e){if(e.target===this)this.classList.remove('open')});
+    document.getElementById('fabNearest').addEventListener('click',goNearest);
+
+    async function init(){
+      try{
+        allData=await load();
+        popEstados(allData);
+        render(allData);
+        document.getElementById('loading').classList.add('hidden');
+        getLocation();
+      }catch(e){
+        console.error(e);
+        document.querySelector('.ld-text').textContent='Erro ao carregar dados.';
+      }
+    }
+    window.showDetail=showDetail;
+    init();
+  </script>
+</body>
+</html>
